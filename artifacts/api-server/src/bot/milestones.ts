@@ -3,44 +3,39 @@ export interface Milestone {
   lore: string;
 }
 
-// Rotating lore templates for every-100-message milestones.
-// The milestone count is substituted where {count} appears.
 const HUNDRED_TEMPLATES = [
-  "{count} messages in. The keyboard fears them.",
-  "Witnesses confirm {count} messages sent. The server has filed a noise complaint.",
-  "{count} messages deep. Historians have started taking notes.",
-  "The count reaches {count}. Someone send help.",
-  "{count} messages. At this rate, they'll outlast the server itself.",
-  "Another {count} messages logged. The void keeps responding.",
-  "{count} messages strong. Still no signs of slowing down.",
-  "Scientists estimate {count} messages represents approximately one week of their thoughts.",
-  "{count} messages. The mods have accepted their fate.",
-  "Breaking: local member sends {count}th message. Observers stunned.",
+  "Đã gửi {count} tin nhắn. Bàn phím bắt đầu run rẩy.",
+  "Ghi nhận {count} tin nhắn. Server đã nộp đơn kiện vì ô nhiễm tiếng ồn.",
+  "{count} tin nhắn. Các nhà sử học bắt đầu ghi chép.",
+  "Con số đạt {count}. Ai đó gọi cho cấp cứu đi.",
+  "{count} tin nhắn. Với tốc độ này, họ sẽ tồn tại lâu hơn cả server.",
+  "Thêm {count} tin nhắn được ghi lại. Khoảng trống vũ trụ vẫn đang phản hồi.",
+  "{count} tin nhắn vững chắc. Vẫn chưa có dấu hiệu dừng lại.",
+  "Các nhà khoa học ước tính {count} tin nhắn tương đương khoảng một tuần suy nghĩ của họ.",
+  "{count} tin nhắn. Các mod đã chấp nhận số phận.",
+  "Tin nóng: thành viên địa phương gửi tin nhắn thứ {count}. Cả server kinh hoàng.",
 ];
 
-// Special milestone overrides for particularly round numbers
 const SPECIAL_MILESTONES: Record<number, string> = {
-  100: "First made their mark with a humble 100 messages. The elders took notice.",
-  500: "Has sent 500 messages into the void. Disturbingly, the void has started responding.",
-  1000: "After 1,000 messages, legally required to attend all server meetups. No exceptions.",
-  2000: "2,000 messages in. A monument was proposed. Funding is pending.",
-  5000: "5,000 messages deep. Scholars debate whether they sleep or simply reload Discord between naps.",
-  10000: "10,000 messages strong. Songs have been written. Temples erected. Villagers whisper their name.",
-  25000: "25,000 messages documented. The server historians have run out of ink. A new era begins.",
-  50000: "50,000 messages. At this point they ARE the server. The server is them. We live inside their chat.",
+  100: "Lần đầu để lại dấu ấn với vỏn vẹn 100 tin nhắn. Các bậc trưởng lão đã chú ý.",
+  500: "Đã gửi 500 tin nhắn vào khoảng không. Đáng sợ thay, khoảng không đã bắt đầu trả lời.",
+  1000: "Sau 1.000 tin nhắn, đã bị bắt buộc tham dự mọi buổi họp mặt server. Không có ngoại lệ.",
+  2000: "2.000 tin nhắn. Người ta đề xuất dựng tượng đài. Ngân sách đang chờ duyệt.",
+  5000: "5.000 tin nhắn. Các học giả tranh luận liệu họ có ngủ không hay chỉ reload Discord giữa các giấc ngủ ngắn.",
+  10000: "10.000 tin nhắn. Bài hát đã được viết. Đền thờ đã được dựng. Dân làng thì thầm tên họ.",
+  25000: "25.000 tin nhắn. Các sử gia server đã hết mực. Một kỷ nguyên mới bắt đầu.",
+  50000: "50.000 tin nhắn. Lúc này họ chính là server. Server chính là họ. Chúng ta đang sống bên trong cuộc trò chuyện của họ.",
 };
 
 function getLoreForCount(count: number): string {
   if (SPECIAL_MILESTONES[count]) {
     return SPECIAL_MILESTONES[count]!;
   }
-  // Pick a template based on which 100-step this is (cycles through templates)
   const index = Math.floor(count / 100) % HUNDRED_TEMPLATES.length;
   const template = HUNDRED_TEMPLATES[index]!;
-  return template.replace("{count}", count.toLocaleString());
+  return template.replace("{count}", count.toLocaleString("vi-VN"));
 }
 
-// Generate milestones every 100 messages up to 50,000
 export const MILESTONES: Milestone[] = Array.from(
   { length: 500 },
   (_, i) => {

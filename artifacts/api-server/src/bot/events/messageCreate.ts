@@ -57,7 +57,7 @@ export function registerMessageCreateEvent(client: Client): void {
           if ("send" in message.channel) {
             const name = message.member?.displayName ?? message.author.displayName;
             await message.channel.send(
-              `${name} just hit ${newCount} messages — ${milestone.lore}`,
+              `${name} vừa đạt ${newCount} tin nhắn — ${milestone.lore}`,
             );
           }
         } catch {

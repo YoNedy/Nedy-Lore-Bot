@@ -11,15 +11,15 @@ import { logger } from "../../lib/logger";
 
 export const data = new SlashCommandBuilder()
   .setName("generatelore")
-  .setDescription("Scan a member's messages and auto-generate AI lore for them")
+  .setDescription("Quét tin nhắn và tự động tạo lore cho thành viên bằng AI")
   .setDMPermission(false)
   .addUserOption((opt) =>
-    opt.setName("user").setDescription("The member to generate lore for").setRequired(true),
+    opt.setName("user").setDescription("Thành viên cần tạo lore").setRequired(true),
   )
   .addIntegerOption((opt) =>
     opt
       .setName("entries")
-      .setDescription("How many lore entries to generate (default: 3, max: 5)")
+      .setDescription("Số mục lore cần tạo (mặc định: 3, tối đa: 5)")
       .setMinValue(1)
       .setMaxValue(5),
   );
@@ -56,7 +56,7 @@ async function fetchUserMessages(
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.inGuild()) {
-    await interaction.reply({ content: "this only works in a server", ephemeral: true });
+    await interaction.reply({ content: "lệnh này chỉ dùng được trong server", ephemeral: true });
     return;
   }
 
@@ -64,12 +64,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const count = interaction.options.getInteger("entries") ?? 3;
 
   if (target.bot) {
-    await interaction.reply({ content: "bots don't get lore", ephemeral: true });
+    await interaction.reply({ content: "bot không có lore", ephemeral: true });
     return;
   }
 
   await interaction.deferReply();
-  await interaction.editReply(`scanning ${target.displayName}'s messages...`);
+  await interaction.editReply(`đang quét tin nhắn của ${target.displayName}...`);
 
   const guild = interaction.guild!;
   const textChannels = guild.channels.cache
@@ -84,17 +84,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const msgs = await fetchUserMessages(channel, target.id, 40);
       allMessages.push(...msgs);
     } catch {
-      // skip channels we can't read
+      // bỏ qua kênh không đọc được
     }
   }
 
   if (allMessages.length === 0) {
-    await interaction.editReply(`couldn't find any messages from ${target.displayName}`);
+    await interaction.editReply(`không tìm thấy tin nhắn nào của ${target.displayName}`);
     return;
   }
 
   await interaction.editReply(
-    `found ${allMessages.length} messages from ${target.displayName}, generating lore...`,
+    `tìm thấy ${allMessages.length} tin nhắn của ${target.displayName}, đang tạo lore...`,
   );
 
   const sample = allMessages.slice(0, 150);
@@ -103,13 +103,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   let loreEntries: string[] = [];
 
   try {
-    const prompt = `You are a dramatic fantasy lore writer for a Discord server. Based on a member's chat messages, you write short, witty, exaggerated lore entries about them — like they're a legendary character in a server mythology. Each entry should be 1-2 sentences, funny, and rooted in something real from their messages (their topics, slang, behavior, or interests). Do NOT be mean-spirited. Write in a deadpan epic tone.
+    const prompt = `Bạn là một người viết lore huyền thoại cho server Discord. Dựa trên các tin nhắn của thành viên, hãy viết những mục lore ngắn, hài hước, phóng đại về họ — như thể họ là một nhân vật huyền thoại trong server. Mỗi mục 1-2 câu, hài hước, dựa trên nội dung thực tế từ tin nhắn của họ (chủ đề, cách nói chuyện, hành vi, sở thích). KHÔNG được ác ý. Viết bằng tiếng Việt theo giọng điệu hào hùng, deadpan.
 
-Here are ${sample.length} messages from Discord user "${target.displayName}":
+Đây là ${sample.length} tin nhắn của thành viên "${target.displayName}":
 
 ${messagesText}
 
-Write exactly ${count} lore entries about them based on these messages. Return ONLY a JSON array of ${count} strings, no extra text or markdown.`;
+Viết chính xác ${count} mục lore về họ dựa trên các tin nhắn trên. Trả về CHỈ một mảng JSON gồm ${count} chuỗi, không có văn bản hay markdown thừa.`;
 
     const response = await gemini.models.generateContent({
       model: "gemini-2.5-flash",
@@ -126,12 +126,12 @@ Write exactly ${count} lore entries about them based on these messages. Return O
     }
   } catch (err) {
     logger.error({ err }, "Gemini lore generation failed");
-    await interaction.editReply("ai oracle is unavailable, try again later");
+    await interaction.editReply("AI đang bận, thử lại sau");
     return;
   }
 
   if (loreEntries.length === 0) {
-    await interaction.editReply("ai couldn't generate lore, their legend defies comprehension");
+    await interaction.editReply("AI không tạo được lore, huyền thoại của họ vượt ngoài tầm hiểu biết");
     return;
   }
 
@@ -168,6 +168,6 @@ Write exactly ${count} lore entries about them based on these messages. Return O
   const lines = saved.map((entry) => `— ${entry.content}`);
 
   await interaction.editReply(
-    `lore generated for ${target.displayName}\n\n${lines.join("\n")}`,
+    `lore đã được tạo cho ${target.displayName}\n\n${lines.join("\n")}`,
   );
 }

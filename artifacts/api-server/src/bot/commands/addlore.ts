@@ -7,31 +7,31 @@ import { db, loreEntriesTable, membersTable } from "@workspace/db";
 
 export const data = new SlashCommandBuilder()
   .setName("addlore")
-  .setDescription("Add a lore entry to a server member's history")
+  .setDescription("Thêm một mục lore cho thành viên")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
   .setDMPermission(false)
   .addUserOption((opt) =>
-    opt.setName("user").setDescription("The member to add lore for").setRequired(true),
+    opt.setName("user").setDescription("Thành viên cần thêm lore").setRequired(true),
   )
   .addStringOption((opt) =>
-    opt.setName("text").setDescription("The lore entry text").setRequired(true).setMaxLength(500),
+    opt.setName("text").setDescription("Nội dung lore").setRequired(true).setMaxLength(500),
   )
   .addStringOption((opt) =>
     opt
       .setName("category")
-      .setDescription("Type of lore (default: manual)")
+      .setDescription("Loại lore (mặc định: thủ công)")
       .addChoices(
-        { name: "Manual", value: "manual" },
+        { name: "Thủ công", value: "manual" },
         { name: "Roast", value: "roast" },
-        { name: "Event", value: "event" },
-        { name: "Donation", value: "donation" },
+        { name: "Sự kiện", value: "event" },
+        { name: "Donate", value: "donation" },
         { name: "Chat", value: "chat" },
       ),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.inGuild()) {
-    await interaction.reply({ content: "this only works in a server", ephemeral: true });
+    await interaction.reply({ content: "lệnh này chỉ dùng được trong server", ephemeral: true });
     return;
   }
 
@@ -42,7 +42,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   await interaction.deferReply({ ephemeral: true });
 
   if (target.bot) {
-    await interaction.editReply("bots don't get lore, they have no soul");
+    await interaction.editReply("bot không có lore, chúng không có linh hồn");
     return;
   }
 
@@ -75,6 +75,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     .returning();
 
   await interaction.editReply(
-    `lore added for ${target.displayName} (id: ${entry!.id})\n> ${text}`,
+    `đã thêm lore cho ${target.displayName} (id: ${entry!.id})\n> ${text}`,
   );
 }

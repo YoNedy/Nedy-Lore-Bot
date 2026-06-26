@@ -7,31 +7,21 @@ import { eq, and, desc } from "drizzle-orm";
 
 export const data = new SlashCommandBuilder()
   .setName("lore")
-  .setDescription("View the lore of a server member")
+  .setDescription("Xem lịch sử huyền thoại của một thành viên")
   .setDMPermission(false)
   .addUserOption((opt) =>
-    opt.setName("user").setDescription("The member to view lore for").setRequired(true),
+    opt.setName("user").setDescription("Thành viên cần xem").setRequired(true),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.inGuild()) {
-    await interaction.reply({ content: "this only works in a server", ephemeral: true });
+    await interaction.reply({ content: "lệnh này chỉ dùng được trong server", ephemeral: true });
     return;
   }
 
   const target = interaction.options.getUser("user", true);
 
   await interaction.deferReply();
-
-  const [member] = await db
-    .select()
-    .from(membersTable)
-    .where(
-      and(
-        eq(membersTable.discordId, target.id),
-        eq(membersTable.guildId, interaction.guildId),
-      ),
-    );
 
   const entries = await db
     .select()
@@ -46,14 +36,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   if (entries.length === 0) {
     await interaction.editReply(
-      `${target.displayName} has no lore yet. their legend is unwritten.`,
+      `${target.displayName} chưa có lịch sử gì cả. truyền thuyết vẫn còn trống.`,
     );
     return;
   }
 
   const shown = entries.slice(0, 10);
   const lines = shown.map((entry) => entry.content);
-  const footer = entries.length > 10 ? `\n...and ${entries.length - 10} more` : "";
+  const footer = entries.length > 10 ? `\n...và ${entries.length - 10} mục khác` : "";
 
   await interaction.editReply(`${lines.join("\n")}${footer}`);
 }

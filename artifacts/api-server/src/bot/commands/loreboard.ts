@@ -7,12 +7,12 @@ import { eq, desc, sql } from "drizzle-orm";
 
 export const data = new SlashCommandBuilder()
   .setName("loreboard")
-  .setDescription("See which members have accumulated the most lore")
+  .setDescription("Xem những thành viên có nhiều lore nhất")
   .setDMPermission(false);
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.inGuild()) {
-    await interaction.reply({ content: "this only works in a server", ephemeral: true });
+    await interaction.reply({ content: "lệnh này chỉ dùng được trong server", ephemeral: true });
     return;
   }
 
@@ -30,7 +30,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     .limit(10);
 
   if (results.length === 0) {
-    await interaction.editReply("no lore recorded yet. use /addlore to start.");
+    await interaction.editReply("chưa có lore nào được ghi lại. dùng /addlore để bắt đầu.");
     return;
   }
 
@@ -43,12 +43,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         const member = await interaction.guild?.members.fetch(row.discordId);
         if (member) name = member.displayName;
       } catch {
-        // member may have left
+        // thành viên có thể đã rời server
       }
       const medal = medals[i] ?? `${i + 1}.`;
-      return `${medal} ${name} — ${row.count} entr${row.count === 1 ? "y" : "ies"}`;
+      return `${medal} ${name} — ${row.count} mục`;
     }),
   );
 
-  await interaction.editReply(`📜 lore leaderboard\n\n${lines.join("\n")}`);
+  await interaction.editReply(`📜 bảng xếp hạng lore\n\n${lines.join("\n")}`);
 }
