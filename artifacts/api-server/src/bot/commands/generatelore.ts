@@ -6,7 +6,7 @@ import {
   Message,
 } from "discord.js";
 import { db, loreEntriesTable, membersTable } from "@workspace/db";
-import { openai } from "../../lib/openai";
+import { gemini } from "../../lib/gemini";
 import { logger } from "../../lib/logger";
 
 export const data = new SlashCommandBuilder()
@@ -103,22 +103,20 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   let loreEntries: string[] = [];
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      max_tokens: 800,
-      messages: [
-        {
-          role: "system",
-          content: `You are a dramatic fantasy lore writer for a Discord server. Based on a member's chat messages, you write short, witty, exaggerated lore entries about them — like they're a legendary character in a server mythology. Each entry should be 1-2 sentences, funny, and rooted in something real from their messages (their topics, slang, behavior, or interests). Do NOT be mean-spirited. Write in a deadpan epic tone. Return ONLY a JSON array of strings, each being one lore entry. No extra text.`,
-        },
-        {
-          role: "user",
-          content: `Here are ${sample.length} messages from Discord user "${target.displayName}":\n\n${messagesText}\n\nWrite exactly ${count} lore entries about them based on these messages. Return a JSON array of ${count} strings.`,
-        },
-      ],
+    const prompt = `You are a dramatic fantasy lore writer for a Discord server. Based on a member's chat messages, you write short, witty, exaggerated lore entries about them — like they're a legendary character in a server mythology. Each entry should be 1-2 sentences, funny, and rooted in something real from their messages (their topics, slang, behavior, or interests). Do NOT be mean-spirited. Write in a deadpan epic tone.
+
+Here are ${sample.length} messages from Discord user "${target.displayName}":
+
+${messagesText}
+
+Write exactly ${count} lore entries about them based on these messages. Return ONLY a JSON array of ${count} strings, no extra text or markdown.`;
+
+    const response = await gemini.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
     });
 
-    const raw = response.choices[0]?.message?.content ?? "[]";
+    const raw = response.text ?? "[]";
     const jsonMatch = raw.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
@@ -127,7 +125,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
     }
   } catch (err) {
-    logger.error({ err }, "OpenAI lore generation failed");
+    logger.error({ err }, "Gemini lore generation failed");
     await interaction.editReply("ai oracle is unavailable, try again later");
     return;
   }
@@ -167,9 +165,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     )
     .returning();
 
-  const lines = saved.map((entry, i) => `${i + 1}. ${entry.content} (id: ${entry.id})`);
+  const lines = saved.map((entry) => `— ${entry.content}`);
 
   await interaction.editReply(
-    `lore generated for ${target.displayName} (based on ${allMessages.length} messages)\n\n${lines.join("\n")}`,
+    `lore generated for ${target.displayName}\n\n${lines.join("\n")}`,
   );
 }
