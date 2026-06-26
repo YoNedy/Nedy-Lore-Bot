@@ -49,7 +49,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const text = interaction.options.getString("text", true);
   const category = interaction.options.getString("category") ?? "manual";
 
-  await interaction.deferReply();
+  await interaction.deferReply({ ephemeral: true });
 
   if (target.bot) {
     await interaction.editReply({ content: "❌ Bots don't get lore. They have no soul." });
