@@ -24,6 +24,9 @@ export const data = new SlashCommandBuilder()
       .setMaxValue(5),
   );
 
+const CHANNEL_TIMEOUT_MS = 8_000;
+
+/** Fetch up to `limit` messages from one channel with a hard timeout. */
 async function fetchUserMessages(
   channel: TextChannel,
   userId: string,
@@ -31,8 +34,9 @@ async function fetchUserMessages(
 ): Promise<string[]> {
   const results: string[] = [];
   let lastId: string | undefined;
+  const deadline = Date.now() + CHANNEL_TIMEOUT_MS;
 
-  while (results.length < limit) {
+  while (results.length < limit && Date.now() < deadline) {
     const fetched: Collection<string, Message> = await channel.messages.fetch({
       limit: 100,
       ...(lastId ? { before: lastId } : {}),
@@ -77,16 +81,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     .map((ch) => ch as TextChannel);
 
   const sampled = textChannels.slice(0, 20);
-  const allMessages: string[] = [];
 
-  for (const channel of sampled) {
-    try {
-      const msgs = await fetchUserMessages(channel, target.id, 40);
-      allMessages.push(...msgs);
-    } catch {
-      // bỏ qua kênh không đọc được
-    }
-  }
+  const results = await Promise.allSettled(
+    sampled.map((channel) => fetchUserMessages(channel, target.id, 40)),
+  );
+
+  const allMessages: string[] = results.flatMap((r) =>
+    r.status === "fulfilled" ? r.value : [],
+  );
 
   if (allMessages.length === 0) {
     await interaction.editReply(`không tìm thấy tin nhắn nào của ${target.displayName}`);
