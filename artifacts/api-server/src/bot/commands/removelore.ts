@@ -4,19 +4,18 @@ import {
   PermissionFlagsBits,
 } from "discord.js";
 import { db, loreEntriesTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 
 export const data = new SlashCommandBuilder()
   .setName("removelore")
-  .setDescription("Xóa một mục lore theo ID")
+  .setDescription("Xóa mục lore mới nhất của thành viên")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
   .setDMPermission(false)
-  .addIntegerOption((opt) =>
+  .addUserOption((opt) =>
     opt
-      .setName("id")
-      .setDescription("ID của mục lore (hiển thị trong /lore)")
-      .setRequired(true)
-      .setMinValue(1),
+      .setName("user")
+      .setDescription("Thành viên cần xóa lore mới nhất")
+      .setRequired(true),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -25,24 +24,37 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
-  const entryId = interaction.options.getInteger("id", true);
+  const target = interaction.options.getUser("user", true);
 
   await interaction.deferReply({ ephemeral: true });
 
-  const [deleted] = await db
-    .delete(loreEntriesTable)
+  const [latest] = await db
+    .select()
+    .from(loreEntriesTable)
     .where(
       and(
-        eq(loreEntriesTable.id, entryId),
+        eq(loreEntriesTable.discordId, target.id),
         eq(loreEntriesTable.guildId, interaction.guildId),
       ),
     )
-    .returning();
+    .orderBy(desc(loreEntriesTable.createdAt))
+    .limit(1);
 
-  if (!deleted) {
-    await interaction.editReply(`không tìm thấy mục lore có id ${entryId} trong server này`);
+  if (!latest) {
+    await interaction.editReply(`${target.displayName} chưa có mục lore nào.`);
     return;
   }
 
-  await interaction.editReply(`đã xóa mục lore ${entryId}: "${deleted.content}"`);
+  await db
+    .delete(loreEntriesTable)
+    .where(
+      and(
+        eq(loreEntriesTable.id, latest.id),
+        eq(loreEntriesTable.guildId, interaction.guildId),
+      ),
+    );
+
+  await interaction.editReply(
+    `đã xóa lore mới nhất của **${target.displayName}**:\n> ${latest.content}`,
+  );
 }
