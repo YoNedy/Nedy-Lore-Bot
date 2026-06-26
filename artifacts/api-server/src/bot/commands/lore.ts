@@ -13,6 +13,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
   event: "🏆",
   donation: "💰",
   manual: "📖",
+  auto: "🤖",
 };
 
 export const data = new SlashCommandBuilder()
