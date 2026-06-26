@@ -9,13 +9,14 @@ import * as removelore from "./removelore";
 import * as loreboard from "./loreboard";
 import * as generatelore from "./generatelore";
 import * as deletelore from "./deletelore";
+import * as editlore from "./editlore";
 
 export interface Command {
   data: SlashCommandOptionsOnlyBuilder | SlashCommandBuilder;
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
 }
 
-export const commands: Command[] = [lore, addlore, removelore, loreboard, generatelore, deletelore];
+export const commands: Command[] = [lore, addlore, removelore, loreboard, generatelore, deletelore, editlore];
 
 export const commandMap = new Map<string, Command>(
   commands.map((cmd) => [cmd.data.name, cmd]),
