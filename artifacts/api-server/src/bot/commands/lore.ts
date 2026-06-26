@@ -43,7 +43,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   const shown = entries.slice(0, 10);
   const lines = shown.map((entry) => entry.content);
-  const footer = entries.length > 10 ? `\n...và ${entries.length - 10} mục khác` : "";
+  const footer = entries.length > 10 ? `\n\n...và ${entries.length - 10} mục khác` : "";
 
-  await interaction.editReply(`${lines.join("\n")}${footer}`);
+  await interaction.editReply(`${lines.join("\n\n")}${footer}`);
 }
