@@ -5,7 +5,14 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "translate-lore": "tsx ./src/translate-lore.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "*",
+    "@workspace/db": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "pg": "*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
