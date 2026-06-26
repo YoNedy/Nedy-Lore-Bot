@@ -24,38 +24,42 @@ export const data = new SlashCommandBuilder()
       .setMaxValue(5),
   );
 
-const CHANNEL_TIMEOUT_MS = 8_000;
+const CHANNEL_TIMEOUT_MS = 15_000;
 
-/** Fetch up to `limit` messages from one channel with a hard timeout. */
-async function fetchUserMessages(
+/**
+ * Fetch up to `scanLimit` recent messages from a channel,
+ * returning only those authored by `userId`.
+ */
+async function scanChannel(
   channel: TextChannel,
   userId: string,
-  limit: number,
+  scanLimit: number,
 ): Promise<string[]> {
-  const results: string[] = [];
+  const userMessages: string[] = [];
   let lastId: string | undefined;
+  let scanned = 0;
   const deadline = Date.now() + CHANNEL_TIMEOUT_MS;
 
-  while (results.length < limit && Date.now() < deadline) {
-    const fetched: Collection<string, Message> = await channel.messages.fetch({
+  while (scanned < scanLimit && Date.now() < deadline) {
+    const batch: Collection<string, Message> = await channel.messages.fetch({
       limit: 100,
       ...(lastId ? { before: lastId } : {}),
     });
 
-    if (fetched.size === 0) break;
+    if (batch.size === 0) break;
 
-    for (const msg of fetched.values()) {
+    for (const msg of batch.values()) {
       if (msg.author.id === userId && msg.content.trim().length > 0) {
-        results.push(msg.content.trim());
-        if (results.length >= limit) break;
+        userMessages.push(msg.content.trim());
       }
     }
 
-    lastId = fetched.last()?.id;
-    if (fetched.size < 100) break;
+    scanned += batch.size;
+    lastId = batch.last()?.id;
+    if (batch.size < 100) break;
   }
 
-  return results;
+  return userMessages;
 }
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -73,22 +77,47 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   await interaction.deferReply();
-  await interaction.editReply(`đang quét tin nhắn của ${target.displayName}...`);
+  await interaction.editReply(`đang quét 1000 tin nhắn gần nhất tìm ${target.displayName}...`);
 
   const guild = interaction.guild!;
-  const textChannels = guild.channels.cache
-    .filter((ch) => ch instanceof TextChannel && ch.viewable)
-    .map((ch) => ch as TextChannel);
+  const currentChannel = interaction.channel;
 
-  const sampled = textChannels.slice(0, 20);
+  let allMessages: string[] = [];
 
-  const results = await Promise.allSettled(
-    sampled.map((channel) => fetchUserMessages(channel, target.id, 40)),
-  );
+  // 1. Scan the current channel first (nearest 1000 messages)
+  if (currentChannel instanceof TextChannel && currentChannel.viewable) {
+    const fromCurrent = await scanChannel(currentChannel, target.id, 1000);
+    allMessages.push(...fromCurrent);
+    logger.info(
+      { channelId: currentChannel.id, found: fromCurrent.length },
+      "Scanned current channel",
+    );
+  }
 
-  const allMessages: string[] = results.flatMap((r) =>
-    r.status === "fulfilled" ? r.value : [],
-  );
+  // 2. If we don't have enough, supplement from other channels
+  if (allMessages.length < 30) {
+    await interaction.editReply(
+      `tìm thấy ${allMessages.length} tin nhắn trong kênh này, đang quét thêm các kênh khác...`,
+    );
+
+    const otherChannels = guild.channels.cache
+      .filter(
+        (ch) =>
+          ch instanceof TextChannel &&
+          ch.viewable &&
+          ch.id !== currentChannel?.id,
+      )
+      .map((ch) => ch as TextChannel)
+      .slice(0, 15);
+
+    const results = await Promise.allSettled(
+      otherChannels.map((ch) => scanChannel(ch, target.id, 200)),
+    );
+
+    for (const r of results) {
+      if (r.status === "fulfilled") allMessages.push(...r.value);
+    }
+  }
 
   if (allMessages.length === 0) {
     await interaction.editReply(`không tìm thấy tin nhắn nào của ${target.displayName}`);
