@@ -51,13 +51,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
-  const messageCount = member?.messageCount ?? 0;
   const shown = entries.slice(0, 10);
-
-  const lines = shown.map((entry, i) => `${i + 1}. ${entry.content} (id: ${entry.id})`);
-
-  const header = `📜 lore of ${target.displayName} — ${entries.length} entr${entries.length === 1 ? "y" : "ies"}, ${messageCount.toLocaleString()} messages`;
+  const lines = shown.map((entry) => entry.content);
   const footer = entries.length > 10 ? `\n...and ${entries.length - 10} more` : "";
 
-  await interaction.editReply(`${header}\n\n${lines.join("\n")}${footer}`);
+  await interaction.editReply(`${lines.join("\n")}${footer}`);
 }
