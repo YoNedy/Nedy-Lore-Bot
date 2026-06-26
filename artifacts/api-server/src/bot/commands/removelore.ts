@@ -1,8 +1,6 @@
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
-  EmbedBuilder,
-  Colors,
   PermissionFlagsBits,
 } from "discord.js";
 import { db, loreEntriesTable } from "@workspace/db";
@@ -23,7 +21,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.inGuild()) {
-    await interaction.reply({ content: "❌ This command can only be used in a server.", ephemeral: true });
+    await interaction.reply({ content: "this only works in a server", ephemeral: true });
     return;
   }
 
@@ -42,17 +40,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     .returning();
 
   if (!deleted) {
-    await interaction.editReply({
-      content: `❌ No lore entry found with ID \`${entryId}\` in this server.`,
-    });
+    await interaction.editReply(`no lore entry found with id ${entryId} in this server`);
     return;
   }
 
-  const embed = new EmbedBuilder()
-    .setColor(Colors.Red)
-    .setTitle("🗑️ Lore Removed")
-    .setDescription(`Entry \`#${entryId}\` has been erased from the history books.\n\n*"${deleted.content}"*`)
-    .setFooter({ text: `Removed by ${interaction.user.displayName}` });
-
-  await interaction.editReply({ embeds: [embed] });
+  await interaction.editReply(`removed lore entry ${entryId}: "${deleted.content}"`);
 }

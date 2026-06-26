@@ -1,8 +1,6 @@
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
-  EmbedBuilder,
-  Colors,
   TextChannel,
   Collection,
   Message,
@@ -26,7 +24,6 @@ export const data = new SlashCommandBuilder()
       .setMaxValue(5),
   );
 
-/** Fetch up to `limit` messages from a single channel authored by `userId` */
 async function fetchUserMessages(
   channel: TextChannel,
   userId: string,
@@ -35,7 +32,6 @@ async function fetchUserMessages(
   const results: string[] = [];
   let lastId: string | undefined;
 
-  // Paginate through channel history to collect user messages
   while (results.length < limit) {
     const fetched: Collection<string, Message> = await channel.messages.fetch({
       limit: 100,
@@ -52,8 +48,6 @@ async function fetchUserMessages(
     }
 
     lastId = fetched.last()?.id;
-
-    // Stop if we got fewer than 100 (reached channel start)
     if (fetched.size < 100) break;
   }
 
@@ -62,7 +56,7 @@ async function fetchUserMessages(
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.inGuild()) {
-    await interaction.reply({ content: "❌ This command can only be used in a server.", ephemeral: true });
+    await interaction.reply({ content: "this only works in a server", ephemeral: true });
     return;
   }
 
@@ -70,47 +64,39 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const count = interaction.options.getInteger("entries") ?? 3;
 
   if (target.bot) {
-    await interaction.reply({ content: "❌ Bots have no stories worth telling.", ephemeral: true });
+    await interaction.reply({ content: "bots don't get lore", ephemeral: true });
     return;
   }
 
   await interaction.deferReply();
-  await interaction.editReply(`🔍 Scanning ${target.displayName}'s message history... this may take a moment.`);
+  await interaction.editReply(`scanning ${target.displayName}'s messages...`);
 
-  // Collect text channels the bot can read
   const guild = interaction.guild!;
   const textChannels = guild.channels.cache
     .filter((ch) => ch instanceof TextChannel && ch.viewable)
     .map((ch) => ch as TextChannel);
 
-  // Gather up to 40 messages per channel, across up to 20 channels
-  const MAX_PER_CHANNEL = 40;
-  const MAX_CHANNELS = 20;
-  const sampled = textChannels.slice(0, MAX_CHANNELS);
-
+  const sampled = textChannels.slice(0, 20);
   const allMessages: string[] = [];
 
   for (const channel of sampled) {
     try {
-      const msgs = await fetchUserMessages(channel, target.id, MAX_PER_CHANNEL);
+      const msgs = await fetchUserMessages(channel, target.id, 40);
       allMessages.push(...msgs);
     } catch {
-      // Skip channels with no read permission
+      // skip channels we can't read
     }
   }
 
   if (allMessages.length === 0) {
-    await interaction.editReply(
-      `❌ Couldn't find any messages from ${target.displayName}. They may be a ghost.`,
-    );
+    await interaction.editReply(`couldn't find any messages from ${target.displayName}`);
     return;
   }
 
   await interaction.editReply(
-    `📜 Found **${allMessages.length}** messages from ${target.displayName}. Consulting the ancient scrolls...`,
+    `found ${allMessages.length} messages from ${target.displayName}, generating lore...`,
   );
 
-  // Sample up to 150 messages to keep prompt size reasonable
   const sample = allMessages.slice(0, 150);
   const messagesText = sample.map((m, i) => `${i + 1}. ${m}`).join("\n");
 
@@ -133,8 +119,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     });
 
     const raw = response.choices[0]?.message?.content ?? "[]";
-
-    // Extract JSON array from response (handle any markdown wrapping)
     const jsonMatch = raw.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
@@ -144,16 +128,15 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
   } catch (err) {
     logger.error({ err }, "OpenAI lore generation failed");
-    await interaction.editReply("❌ The AI oracle is unavailable. Try again in a moment.");
+    await interaction.editReply("ai oracle is unavailable, try again later");
     return;
   }
 
   if (loreEntries.length === 0) {
-    await interaction.editReply("❌ The AI couldn't generate lore. Their legend defies comprehension.");
+    await interaction.editReply("ai couldn't generate lore, their legend defies comprehension");
     return;
   }
 
-  // Upsert member record
   await db
     .insert(membersTable)
     .values({
@@ -171,7 +154,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       },
     });
 
-  // Save all generated entries
   const saved = await db
     .insert(loreEntriesTable)
     .values(
@@ -185,18 +167,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     )
     .returning();
 
-  const embed = new EmbedBuilder()
-    .setColor(Colors.Purple)
-    .setTitle(`✨ AI Lore Generated for ${target.displayName}`)
-    .setThumbnail(target.displayAvatarURL())
-    .setDescription(
-      saved
-        .map((entry, i) => `**${i + 1}.** 🤖 *[auto]* ${entry.content}\n> ID: \`${entry.id}\``)
-        .join("\n\n"),
-    )
-    .setFooter({
-      text: `Based on ${allMessages.length} messages · Use /lore @${target.username} to see full legend`,
-    });
+  const lines = saved.map((entry, i) => `${i + 1}. ${entry.content} (id: ${entry.id})`);
 
-  await interaction.editReply({ content: "", embeds: [embed] });
+  await interaction.editReply(
+    `lore generated for ${target.displayName} (based on ${allMessages.length} messages)\n\n${lines.join("\n")}`,
+  );
 }

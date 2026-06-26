@@ -1,24 +1,13 @@
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
-  EmbedBuilder,
-  Colors,
 } from "discord.js";
 import { db, loreEntriesTable, membersTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  chat: "💬",
-  roast: "🔥",
-  event: "🏆",
-  donation: "💰",
-  manual: "📖",
-  auto: "🤖",
-};
-
 export const data = new SlashCommandBuilder()
   .setName("lore")
-  .setDescription("View the legendary lore of a server member")
+  .setDescription("View the lore of a server member")
   .setDMPermission(false)
   .addUserOption((opt) =>
     opt.setName("user").setDescription("The member to view lore for").setRequired(true),
@@ -26,7 +15,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.inGuild()) {
-    await interaction.reply({ content: "❌ This command can only be used in a server.", ephemeral: true });
+    await interaction.reply({ content: "this only works in a server", ephemeral: true });
     return;
   }
 
@@ -56,49 +45,19 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     .orderBy(desc(loreEntriesTable.createdAt));
 
   if (entries.length === 0) {
-    const embed = new EmbedBuilder()
-      .setColor(Colors.Grey)
-      .setTitle(`📜 The Lore of ${target.displayName}`)
-      .setDescription(
-        `*${target.displayName} has yet to make history. Their legend remains unwritten.*\n\nUse \`/addlore\` to begin their tale.`,
-      )
-      .setThumbnail(target.displayAvatarURL());
-
-    await interaction.editReply({ embeds: [embed] });
+    await interaction.editReply(
+      `${target.displayName} has no lore yet. their legend is unwritten.`,
+    );
     return;
   }
 
   const messageCount = member?.messageCount ?? 0;
-
-  const embed = new EmbedBuilder()
-    .setColor(Colors.Gold)
-    .setTitle(`📜 The Lore of ${target.displayName}`)
-    .setThumbnail(target.displayAvatarURL())
-    .setFooter({
-      text: `${entries.length} lore entr${entries.length === 1 ? "y" : "ies"} · ${messageCount.toLocaleString()} messages sent`,
-    });
-
-  // Show up to 10 most recent entries
   const shown = entries.slice(0, 10);
-  const description = shown
-    .map((entry, i) => {
-      const emoji = CATEGORY_EMOJI[entry.category] ?? "📖";
-      const date = entry.createdAt.toLocaleDateString("en-US", {
-        month: "short",
-        year: "numeric",
-      });
-      return `**${i + 1}.** ${emoji} *[${entry.category}]* ${entry.content}\n> — *${date}* · ID: \`${entry.id}\``;
-    })
-    .join("\n\n");
 
-  embed.setDescription(description);
+  const lines = shown.map((entry, i) => `${i + 1}. ${entry.content} (id: ${entry.id})`);
 
-  if (entries.length > 10) {
-    embed.addFields({
-      name: `...and ${entries.length - 10} more`,
-      value: `The full legend spans ${entries.length} entries. Only the most recent 10 are shown.`,
-    });
-  }
+  const header = `📜 lore of ${target.displayName} — ${entries.length} entr${entries.length === 1 ? "y" : "ies"}, ${messageCount.toLocaleString()} messages`;
+  const footer = entries.length > 10 ? `\n...and ${entries.length - 10} more` : "";
 
-  await interaction.editReply({ embeds: [embed] });
+  await interaction.editReply(`${header}\n\n${lines.join("\n")}${footer}`);
 }

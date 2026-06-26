@@ -1,8 +1,6 @@
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
-  EmbedBuilder,
-  Colors,
   PermissionFlagsBits,
 } from "discord.js";
 import { db, loreEntriesTable, membersTable } from "@workspace/db";
@@ -23,25 +21,17 @@ export const data = new SlashCommandBuilder()
       .setName("category")
       .setDescription("Type of lore (default: manual)")
       .addChoices(
-        { name: "📖 Manual", value: "manual" },
-        { name: "🔥 Roast", value: "roast" },
-        { name: "🏆 Event", value: "event" },
-        { name: "💰 Donation", value: "donation" },
-        { name: "💬 Chat", value: "chat" },
+        { name: "Manual", value: "manual" },
+        { name: "Roast", value: "roast" },
+        { name: "Event", value: "event" },
+        { name: "Donation", value: "donation" },
+        { name: "Chat", value: "chat" },
       ),
   );
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  chat: "💬",
-  roast: "🔥",
-  event: "🏆",
-  donation: "💰",
-  manual: "📖",
-};
-
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.inGuild()) {
-    await interaction.reply({ content: "❌ This command can only be used in a server.", ephemeral: true });
+    await interaction.reply({ content: "this only works in a server", ephemeral: true });
     return;
   }
 
@@ -52,11 +42,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   await interaction.deferReply({ ephemeral: true });
 
   if (target.bot) {
-    await interaction.editReply({ content: "❌ Bots don't get lore. They have no soul." });
+    await interaction.editReply("bots don't get lore, they have no soul");
     return;
   }
 
-  // Upsert guild-scoped member record
   await db
     .insert(membersTable)
     .values({
@@ -85,14 +74,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     })
     .returning();
 
-  const embed = new EmbedBuilder()
-    .setColor(Colors.Green)
-    .setTitle(`✅ Lore Added`)
-    .setDescription(
-      `A new chapter has been written for **${target.displayName}**.\n\n${CATEGORY_EMOJI[category] ?? "📖"} *[${category}]* ${text}`,
-    )
-    .setThumbnail(target.displayAvatarURL())
-    .setFooter({ text: `Entry ID: ${entry!.id} · Added by ${interaction.user.displayName}` });
-
-  await interaction.editReply({ embeds: [embed] });
+  await interaction.editReply(
+    `lore added for ${target.displayName} (id: ${entry!.id})\n> ${text}`,
+  );
 }

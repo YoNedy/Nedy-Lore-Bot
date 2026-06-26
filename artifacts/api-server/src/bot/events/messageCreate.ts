@@ -55,8 +55,9 @@ export function registerMessageCreateEvent(client: Client): void {
         // Announce in the channel where the milestone was hit
         try {
           if ("send" in message.channel) {
+            const name = message.member?.displayName ?? message.author.displayName;
             await message.channel.send(
-              `📜 **New lore unlocked for ${message.member?.displayName ?? message.author.displayName}!**\n> 💬 *${milestone.lore}*\n\nUse \`/lore @${message.author.username}\` to see their full legend.`,
+              `${name} just hit ${newCount} messages — ${milestone.lore}`,
             );
           }
         } catch {
