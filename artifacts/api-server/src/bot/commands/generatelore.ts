@@ -133,8 +133,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   let loreEntries: string[] = [];
 
-  try {
-    const prompt = `Bạn là một người viết lore huyền thoại cho server Discord. Dựa trên các tin nhắn của thành viên, hãy viết những mục lore ngắn, hài hước, phóng đại về họ — như thể họ là một nhân vật huyền thoại trong server. Mỗi mục 1-2 câu, hài hước, dựa trên nội dung thực tế từ tin nhắn của họ (chủ đề, cách nói chuyện, hành vi, sở thích). KHÔNG được ác ý. Viết bằng tiếng Việt theo giọng điệu hào hùng, deadpan.
+  const prompt = `Bạn là một người viết lore huyền thoại cho server Discord. Dựa trên các tin nhắn của thành viên, hãy viết những mục lore ngắn, hài hước, phóng đại về họ — như thể họ là một nhân vật huyền thoại trong server. Mỗi mục 1-2 câu, hài hước, dựa trên nội dung thực tế từ tin nhắn của họ (chủ đề, cách nói chuyện, hành vi, sở thích). KHÔNG được ác ý. Viết bằng tiếng Việt theo giọng điệu hào hùng, deadpan.
 
 Đây là ${sample.length} tin nhắn của thành viên "${target.displayName}":
 
@@ -142,22 +141,42 @@ ${messagesText}
 
 Viết chính xác ${count} mục lore về họ dựa trên các tin nhắn trên. Trả về CHỈ một mảng JSON gồm ${count} chuỗi, không có văn bản hay markdown thừa.`;
 
-    const response = await gemini.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
+  const MAX_RETRIES = 3;
+  let lastErr: unknown;
 
-    const raw = response.text ?? "[]";
-    const jsonMatch = raw.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (Array.isArray(parsed)) {
-        loreEntries = parsed.filter((e): e is string => typeof e === "string").slice(0, count);
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      if (attempt > 1) {
+        const delay = attempt * 3_000;
+        await interaction.editReply(
+          `AI đang tải, thử lại lần ${attempt}/${MAX_RETRIES} sau ${delay / 1000}s...`,
+        );
+        await new Promise((r) => setTimeout(r, delay));
       }
+
+      const response = await gemini.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
+
+      const raw = response.text ?? "[]";
+      const jsonMatch = raw.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(parsed)) {
+          loreEntries = parsed.filter((e): e is string => typeof e === "string").slice(0, count);
+        }
+      }
+      break;
+    } catch (err) {
+      lastErr = err;
+      logger.warn({ err, attempt }, "Gemini lore generation failed, will retry");
     }
-  } catch (err) {
-    logger.error({ err }, "Gemini lore generation failed");
-    await interaction.editReply("AI đang bận, thử lại sau");
+  }
+
+  if (loreEntries.length === 0 && lastErr) {
+    logger.error({ err: lastErr }, "Gemini lore generation failed after all retries");
+    await interaction.editReply("AI vẫn đang bận sau nhiều lần thử, thử lại sau ít phút");
     return;
   }
 
