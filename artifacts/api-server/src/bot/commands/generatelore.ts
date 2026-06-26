@@ -104,8 +104,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   let loreEntries: string[] = [];
 
-  try {
-    const prompt = `Bạn là một người viết lore huyền thoại cho server Discord. Dựa trên các tin nhắn của thành viên, hãy viết những mục lore ngắn, hài hước, phóng đại về họ — như thể họ là một nhân vật huyền thoại trong server. Mỗi mục 1-2 câu, hài hước, dựa trên nội dung thực tế từ tin nhắn của họ (chủ đề, cách nói chuyện, hành vi, sở thích). KHÔNG được ác ý. Viết bằng tiếng Việt theo giọng điệu hào hùng, deadpan.
+  const prompt = `Bạn là một người viết lore huyền thoại cho server Discord. Dựa trên các tin nhắn của thành viên, hãy viết những mục lore ngắn, hài hước, phóng đại về họ — như thể họ là một nhân vật huyền thoại trong server. Mỗi mục 1-2 câu, hài hước, dựa trên nội dung thực tế từ tin nhắn của họ (chủ đề, cách nói chuyện, hành vi, sở thích). KHÔNG được ác ý. Viết bằng tiếng Việt theo giọng điệu hào hùng, deadpan.
 
 Đây là ${sample.length} tin nhắn của thành viên "${target.displayName}":
 
@@ -113,30 +112,49 @@ ${messagesText}
 
 Viết chính xác ${count} mục lore về họ dựa trên các tin nhắn trên. Trả về CHỈ một mảng JSON gồm ${count} chuỗi, không có văn bản hay markdown thừa.`;
 
-    const response = await gemini.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
-
-    const raw = response.text ?? "[]";
-    const jsonMatch = raw.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (Array.isArray(parsed)) {
-        loreEntries = parsed.filter((e): e is string => typeof e === "string").slice(0, count);
-      }
-    }
-  } catch (err: any) {
-    logger.error({ err }, "Gemini lore generation failed");
+  const isQuotaError = (err: any): boolean => {
     const msg = String(err?.message ?? err);
-    const isQuota =
+    return (
       msg.includes("429") ||
       msg.toLowerCase().includes("quota") ||
       msg.toLowerCase().includes("rate limit") ||
-      msg.toLowerCase().includes("resource_exhausted");
-    if (isQuota) {
+      msg.toLowerCase().includes("resource_exhausted")
+    );
+  };
+
+  const parseResponse = (text: string): string[] => {
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return [];
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((e): e is string => typeof e === "string").slice(0, count);
+  };
+
+  const models = ["gemini-2.5-flash", "gemini-2.0-flash"];
+  let lastErr: any;
+
+  for (const model of models) {
+    try {
+      const response = await gemini.models.generateContent({ model, contents: prompt });
+      loreEntries = parseResponse(response.text ?? "[]");
+      break;
+    } catch (err: any) {
+      lastErr = err;
+      if (isQuotaError(err)) {
+        logger.warn({ model }, "Gemini quota hit, trying next model");
+        continue;
+      }
+      logger.error({ err, model }, "Gemini lore generation failed");
+      await interaction.editReply("AI đang bận, thử lại sau.");
+      return;
+    }
+  }
+
+  if (loreEntries.length === 0 && lastErr) {
+    logger.error({ err: lastErr }, "All Gemini models exhausted");
+    if (isQuotaError(lastErr)) {
       await interaction.editReply(
-        "❌ Gemini API đã hết quota hôm nay. Thử lại vào ngày mai hoặc nâng cấp API key.",
+        "❌ Gemini API đã hết quota hôm nay trên tất cả models. Thử lại vào ngày mai hoặc nâng cấp API key.",
       );
     } else {
       await interaction.editReply("AI đang bận, thử lại sau.");
