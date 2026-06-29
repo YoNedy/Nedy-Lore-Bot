@@ -1,9 +1,13 @@
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
+  EmbedBuilder,
 } from "discord.js";
-import { db, loreEntriesTable, membersTable } from "@workspace/db";
+import { db, loreEntriesTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
+
+const EMBED_DESCRIPTION_LIMIT = 4096;
+const ENTRY_MAX_LENGTH = 300;
 
 export const data = new SlashCommandBuilder()
   .setName("lore")
@@ -41,9 +45,31 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
-  const shown = entries.slice(0, 10);
-  const lines = shown.map((entry) => entry.content);
-  const footer = entries.length > 10 ? `\n\n...và ${entries.length - 10} mục khác` : "";
+  const lines: string[] = [];
+  let totalLength = 0;
+  let shown = 0;
 
-  await interaction.editReply(`${lines.join("\n\n")}${footer}`);
+  for (const entry of entries) {
+    const text = entry.content.length > ENTRY_MAX_LENGTH
+      ? entry.content.slice(0, ENTRY_MAX_LENGTH) + "…"
+      : entry.content;
+    const line = `— ${text}`;
+    if (totalLength + line.length + 2 > EMBED_DESCRIPTION_LIMIT) break;
+    lines.push(line);
+    totalLength += line.length + 2;
+    shown++;
+  }
+
+  const remaining = entries.length - shown;
+  const footer = remaining > 0 ? `\n*...và ${remaining} mục khác*` : "";
+  const description = lines.join("\n\n") + footer;
+
+  const embed = new EmbedBuilder()
+    .setTitle(`📖 Lore của ${target.displayName}`)
+    .setDescription(description)
+    .setThumbnail(target.displayAvatarURL())
+    .setFooter({ text: `${entries.length} mục lore` })
+    .setColor(0x5865f2);
+
+  await interaction.editReply({ embeds: [embed] });
 }
